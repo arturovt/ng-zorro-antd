@@ -13,7 +13,6 @@ import {
   ContentChild,
   ElementRef,
   Input,
-  NgZone,
   OnChanges,
   OnDestroy,
   OnInit,
@@ -22,10 +21,11 @@ import {
   ViewEncapsulation,
   booleanAttribute
 } from '@angular/core';
-import { Subject, fromEvent } from 'rxjs';
+import { Subject } from 'rxjs';
 import { filter, startWith, takeUntil } from 'rxjs/operators';
 
 import { NzConfigKey, NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
+import { fromEventOutsideAngular } from 'ng-zorro-antd/core/util';
 import { NzIconDirective, NzIconModule } from 'ng-zorro-antd/icon';
 
 export type NzButtonType = 'primary' | 'default' | 'dashed' | 'link' | 'text' | null;
@@ -111,7 +111,6 @@ export class NzButtonComponent implements OnDestroy, OnChanges, AfterViewInit, A
   }
 
   constructor(
-    private ngZone: NgZone,
     private elementRef: ElementRef,
     private cdr: ChangeDetectorRef,
     private renderer: Renderer2,
@@ -134,20 +133,18 @@ export class NzButtonComponent implements OnDestroy, OnChanges, AfterViewInit, A
 
     this.dir = this.directionality.value;
 
-    this.ngZone.runOutsideAngular(() => {
-      // Caretaker note: this event listener could've been added through `host.click` or `HostListener`.
-      // The compiler generates the `ɵɵlistener` instruction which wraps the actual listener internally into the
-      // function, which runs `markDirty()` before running the actual listener (the decorated class method).
-      // Since we're preventing the default behavior and stopping event propagation this doesn't require Angular to run the change detection.
-      fromEvent<MouseEvent>(this.elementRef.nativeElement, 'click', { capture: true })
-        .pipe(takeUntil(this.destroy$))
-        .subscribe(event => {
-          if ((this.disabled && (event.target as HTMLElement)?.tagName === 'A') || this.nzLoading) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-          }
-        });
-    });
+    // Caretaker note: this event listener could've been added through `host.click` or `HostListener`.
+    // The compiler generates the `ɵɵlistener` instruction which wraps the actual listener internally into the
+    // function, which runs `markDirty()` before running the actual listener (the decorated class method).
+    // Since we're preventing the default behavior and stopping event propagation this doesn't require Angular to run the change detection.
+    fromEventOutsideAngular<MouseEvent>(this.elementRef.nativeElement, 'click', { capture: true })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(event => {
+        if ((this.disabled && (event.target as HTMLElement)?.tagName === 'A') || this.nzLoading) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      });
   }
 
   ngOnChanges(changes: SimpleChanges): void {

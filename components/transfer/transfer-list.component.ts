@@ -12,7 +12,6 @@ import {
   ElementRef,
   EventEmitter,
   Input,
-  NgZone,
   Output,
   QueryList,
   TemplateRef,
@@ -21,10 +20,11 @@ import {
   ViewEncapsulation,
   booleanAttribute
 } from '@angular/core';
-import { Observable, fromEvent, merge } from 'rxjs';
+import { merge } from 'rxjs';
 import { startWith, switchMap } from 'rxjs/operators';
 
 import { NzCheckboxComponent, NzCheckboxModule } from 'ng-zorro-antd/checkbox';
+import { fromEventOutsideAngular } from 'ng-zorro-antd/core/util';
 import { NzEmptyModule } from 'ng-zorro-antd/empty';
 
 import { RenderListContext, TransferDirection, TransferItem, TransferStat } from './interface';
@@ -249,10 +249,7 @@ export class NzTransferListComponent implements AfterViewInit {
 
   // #endregion
 
-  constructor(
-    private ngZone: NgZone,
-    private cdr: ChangeDetectorRef
-  ) {}
+  constructor(private cdr: ChangeDetectorRef) {}
 
   markForCheck(): void {
     this.updateCheckStatus();
@@ -265,15 +262,8 @@ export class NzTransferListComponent implements AfterViewInit {
         startWith(this.checkboxes),
         switchMap(() => {
           const checkboxes = this.checkboxes.toArray();
-          // Caretaker note: we explicitly should call `subscribe()` within the root zone.
-          // `runOutsideAngular(() => fromEvent(...))` will just create an observable within the root zone,
-          // but `addEventListener` is called when the `fromEvent` is subscribed.
-          return new Observable<MouseEvent>(subscriber =>
-            this.ngZone.runOutsideAngular(() =>
-              merge(...checkboxes.map(checkbox => fromEvent<MouseEvent>(checkbox.nativeElement, 'click'))).subscribe(
-                subscriber
-              )
-            )
+          return merge(
+            ...checkboxes.map(checkbox => fromEventOutsideAngular<MouseEvent>(checkbox.nativeElement, 'click'))
           );
         })
       )
